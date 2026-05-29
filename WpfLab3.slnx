@@ -1,0 +1,4 @@
+<Solution>
+  <Project Path="WpfLab3.Tests/WpfLab3.Tests.csproj" />
+  <Project Path="WpfLab3/WpfLab3.csproj" />
+</Solution>
