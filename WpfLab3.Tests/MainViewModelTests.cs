@@ -66,7 +66,7 @@ namespace WpfLab3.Tests
 
             await _vm.LoadCommand.ExecuteAsync(null);
 
-            Assert.That(_vm.Tasks, Has.Count.EqualTo(2));
+            Assert.That(_vm.Tasks, Has.Count.EqualTo(999));
             Assert.That(_repo.LoadCalls, Is.EqualTo(1));
         }
 
