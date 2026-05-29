@@ -2,111 +2,114 @@ using NUnit.Framework;
 using WpfLab3.Models;
 using WpfLab3.ViewModels;
 
-namespace WpfLab3.Tests;
-
-[TestFixture]
-public class TaskEditViewModelTests
+namespace WpfLab3.Tests
 {
-    [Test]
-    public void NewEditor_WithoutTitle_HasValidationErrorsAndSaveDisabled()
+    [TestFixture]
+    public class TaskEditViewModelTests
     {
-        var vm = new TaskEditViewModel();
-
-        Assert.That(vm.HasErrors, Is.True);
-        Assert.That(vm.SaveCommand.CanExecute(null), Is.False);
-    }
-
-    [Test]
-    public void Editor_TitleTooLong_ReportsValidationError()
-    {
-        var vm = new TaskEditViewModel { Title = new string('x', 101) };
-
-        Assert.That(vm.HasErrors, Is.True);
-        Assert.That(vm.SaveCommand.CanExecute(null), Is.False);
-    }
-
-    [Test]
-    public void Editor_DescriptionTooLong_ReportsValidationError()
-    {
-        var vm = new TaskEditViewModel
+        [Test]
+        public void NewEditor_WithoutTitle_HasValidationErrorsAndSaveDisabled()
         {
-            Title = "ok",
-            Description = new string('x', 501)
-        };
+            TaskEditViewModel vm = new TaskEditViewModel();
 
-        Assert.That(vm.HasErrors, Is.True);
-    }
+            Assert.That(vm.HasErrors, Is.True);
+            Assert.That(vm.SaveCommand.CanExecute(null), Is.False);
+        }
 
-    [Test]
-    public void Editor_ValidInput_AllowsSave()
-    {
-        var vm = new TaskEditViewModel
+        [Test]
+        public void Editor_TitleTooLong_ReportsValidationError()
         {
-            Title = "Buy milk",
-            Description = "2% low fat"
-        };
+            TaskEditViewModel vm = new TaskEditViewModel();
+            vm.Title = new string('x', 101);
 
-        Assert.That(vm.HasErrors, Is.False);
-        Assert.That(vm.SaveCommand.CanExecute(null), Is.True);
-    }
+            Assert.That(vm.HasErrors, Is.True);
+            Assert.That(vm.SaveCommand.CanExecute(null), Is.False);
+        }
 
-    [Test]
-    public void Editor_FromExistingTask_PrefillsFields()
-    {
-        var source = new TodoTask
+        [Test]
+        public void Editor_DescriptionTooLong_ReportsValidationError()
         {
-            Title = "Existing",
-            Description = "desc",
-            IsCompleted = true
-        };
+            TaskEditViewModel vm = new TaskEditViewModel();
+            vm.Title = "ok";
+            vm.Description = new string('x', 501);
 
-        var vm = new TaskEditViewModel(source);
+            Assert.That(vm.HasErrors, Is.True);
+        }
 
-        Assert.That(vm.Title, Is.EqualTo("Existing"));
-        Assert.That(vm.Description, Is.EqualTo("desc"));
-        Assert.That(vm.IsCompleted, Is.True);
-    }
-
-    [Test]
-    public void ToModel_AppliesTrimmedValuesAndNormalizesEmptyDescription()
-    {
-        var vm = new TaskEditViewModel
+        [Test]
+        public void Editor_ValidInput_AllowsSave()
         {
-            Title = "  Hello  ",
-            Description = "   ",
-            IsCompleted = true
-        };
+            TaskEditViewModel vm = new TaskEditViewModel();
+            vm.Title = "Buy milk";
+            vm.Description = "2% low fat";
 
-        var model = vm.ToModel();
+            Assert.That(vm.HasErrors, Is.False);
+            Assert.That(vm.SaveCommand.CanExecute(null), Is.True);
+        }
 
-        Assert.That(model.Title, Is.EqualTo("Hello"));
-        Assert.That(model.Description, Is.Null);
-        Assert.That(model.IsCompleted, Is.True);
-    }
+        [Test]
+        public void Editor_FromExistingTask_PrefillsFields()
+        {
+            TodoTask source = new TodoTask();
+            source.Title = "Existing";
+            source.Description = "desc";
+            source.IsCompleted = true;
 
-    [Test]
-    public void Save_WhenValid_RaisesRequestCloseWithTrue()
-    {
-        var vm = new TaskEditViewModel { Title = "ok" };
-        bool? captured = null;
-        vm.RequestClose += (_, r) => captured = r;
+            TaskEditViewModel vm = new TaskEditViewModel(source);
 
-        vm.SaveCommand.Execute(null);
+            Assert.That(vm.Title, Is.EqualTo("Existing"));
+            Assert.That(vm.Description, Is.EqualTo("desc"));
+            Assert.That(vm.IsCompleted, Is.True);
+        }
 
-        Assert.That(captured, Is.True);
-        Assert.That(vm.DialogResult, Is.True);
-    }
+        [Test]
+        public void ToModel_AppliesTrimmedValuesAndNormalizesEmptyDescription()
+        {
+            TaskEditViewModel vm = new TaskEditViewModel();
+            vm.Title = "  Hello  ";
+            vm.Description = "   ";
+            vm.IsCompleted = true;
 
-    [Test]
-    public void Cancel_RaisesRequestCloseWithFalse()
-    {
-        var vm = new TaskEditViewModel();
-        bool? captured = null;
-        vm.RequestClose += (_, r) => captured = r;
+            TodoTask model = vm.ToModel();
 
-        vm.CancelCommand.Execute(null);
+            Assert.That(model.Title, Is.EqualTo("Hello"));
+            Assert.That(model.Description, Is.Null);
+            Assert.That(model.IsCompleted, Is.True);
+        }
 
-        Assert.That(captured, Is.False);
-        Assert.That(vm.DialogResult, Is.False);
+        [Test]
+        public void Save_WhenValid_RaisesRequestCloseWithTrue()
+        {
+            TaskEditViewModel vm = new TaskEditViewModel();
+            vm.Title = "ok";
+            bool? captured = null;
+            void Handler(object? sender, bool? result)
+            {
+                captured = result;
+            }
+            vm.RequestClose += Handler;
+
+            vm.SaveCommand.Execute(null);
+
+            Assert.That(captured, Is.True);
+            Assert.That(vm.DialogResult, Is.True);
+        }
+
+        [Test]
+        public void Cancel_RaisesRequestCloseWithFalse()
+        {
+            TaskEditViewModel vm = new TaskEditViewModel();
+            bool? captured = null;
+            void Handler(object? sender, bool? result)
+            {
+                captured = result;
+            }
+            vm.RequestClose += Handler;
+
+            vm.CancelCommand.Execute(null);
+
+            Assert.That(captured, Is.False);
+            Assert.That(vm.DialogResult, Is.False);
+        }
     }
 }

@@ -1,28 +1,34 @@
-using System.ComponentModel;
 using System.Windows;
 using WpfLab3.ViewModels;
 
-namespace WpfLab3.Views;
-
-public partial class TaskEditWindow : Window
+namespace WpfLab3.Views
 {
-    public TaskEditWindow()
+    public partial class TaskEditWindow : Window
     {
-        InitializeComponent();
-        DataContextChanged += OnDataContextChanged;
-    }
+        public TaskEditWindow()
+        {
+            InitializeComponent();
+            DataContextChanged += OnDataContextChanged;
+        }
 
-    private void OnDataContextChanged(object sender, DependencyPropertyChangedEventArgs e)
-    {
-        if (e.OldValue is TaskEditViewModel oldVm)
-            oldVm.RequestClose -= OnRequestClose;
-        if (e.NewValue is TaskEditViewModel newVm)
-            newVm.RequestClose += OnRequestClose;
-    }
+        private void OnDataContextChanged(object sender, DependencyPropertyChangedEventArgs e)
+        {
+            TaskEditViewModel? oldVm = e.OldValue as TaskEditViewModel;
+            if (oldVm != null)
+            {
+                oldVm.RequestClose -= OnRequestClose;
+            }
+            TaskEditViewModel? newVm = e.NewValue as TaskEditViewModel;
+            if (newVm != null)
+            {
+                newVm.RequestClose += OnRequestClose;
+            }
+        }
 
-    private void OnRequestClose(object? sender, bool? result)
-    {
-        DialogResult = result;
-        Close();
+        private void OnRequestClose(object? sender, bool? result)
+        {
+            DialogResult = result;
+            Close();
+        }
     }
 }

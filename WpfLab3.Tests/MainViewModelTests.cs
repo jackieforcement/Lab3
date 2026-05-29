@@ -1,148 +1,206 @@
-using System.Linq;
+using System.Collections.Generic;
+using System.Threading;
+using System.Threading.Tasks;
 using NUnit.Framework;
 using WpfLab3.Models;
 using WpfLab3.ViewModels;
 
-namespace WpfLab3.Tests;
-
-[TestFixture, Apartment(ApartmentState.STA)]
-public class MainViewModelTests
+namespace WpfLab3.Tests
 {
-    private FakeTaskRepository _repo = null!;
-    private FakeDialogService _dialogs = null!;
-    private MainViewModel _vm = null!;
-
-    [SetUp]
-    public void Setup()
+    [TestFixture, Apartment(ApartmentState.STA)]
+    public class MainViewModelTests
     {
-        _repo = new FakeTaskRepository();
-        _dialogs = new FakeDialogService();
-        _vm = new MainViewModel(_repo, _dialogs);
-    }
+        private FakeTaskRepository _repo;
+        private FakeDialogService _dialogs;
+        private MainViewModel _vm;
 
-    [Test]
-    public async Task Load_PopulatesTasksFromRepository()
-    {
-        _repo.Store.Add(new TodoTask { Title = "A" });
-        _repo.Store.Add(new TodoTask { Title = "B" });
-
-        await _vm.LoadCommand.ExecuteAsync(null);
-
-        Assert.That(_vm.Tasks, Has.Count.EqualTo(2));
-        Assert.That(_repo.LoadCalls, Is.EqualTo(1));
-    }
-
-    [Test]
-    public async Task Add_WhenDialogAccepts_AddsTaskAndSaves()
-    {
-        _dialogs.EditorHandler = editor =>
+        public MainViewModelTests()
         {
-            editor.Title = "New task";
-            editor.Description = "Some description";
-            return true;
-        };
+            _repo = new FakeTaskRepository();
+            _dialogs = new FakeDialogService();
+            _vm = new MainViewModel(_repo, _dialogs);
+        }
 
-        await _vm.AddCommand.ExecuteAsync(null);
+        [SetUp]
+        public void Setup()
+        {
+            _repo = new FakeTaskRepository();
+            _dialogs = new FakeDialogService();
+            _vm = new MainViewModel(_repo, _dialogs);
+        }
 
-        Assert.That(_vm.Tasks, Has.Count.EqualTo(1));
-        Assert.That(_vm.Tasks[0].Title, Is.EqualTo("New task"));
-        Assert.That(_repo.SaveCalls, Is.EqualTo(1));
-        Assert.That(_repo.Store, Has.Count.EqualTo(1));
-    }
+        private static TodoTask NewTask(string title)
+        {
+            TodoTask task = new TodoTask();
+            task.Title = title;
+            return task;
+        }
 
-    [Test]
-    public async Task Add_WhenDialogCancels_DoesNothing()
-    {
-        _dialogs.EditorHandler = _ => false;
+        private static TodoTask NewTask(string title, bool isCompleted)
+        {
+            TodoTask task = new TodoTask();
+            task.Title = title;
+            task.IsCompleted = isCompleted;
+            return task;
+        }
 
-        await _vm.AddCommand.ExecuteAsync(null);
+        private static List<TaskItemViewModel> SnapshotFiltered(MainViewModel vm)
+        {
+            List<TaskItemViewModel> visible = new List<TaskItemViewModel>();
+            foreach (object? obj in vm.FilteredTasks)
+            {
+                TaskItemViewModel? item = obj as TaskItemViewModel;
+                if (item != null)
+                {
+                    visible.Add(item);
+                }
+            }
+            return visible;
+        }
 
-        Assert.That(_vm.Tasks, Is.Empty);
-        Assert.That(_repo.SaveCalls, Is.Zero);
-    }
+        [Test]
+        public async Task Load_PopulatesTasksFromRepository()
+        {
+            _repo.Store.Add(NewTask("A"));
+            _repo.Store.Add(NewTask("B"));
 
-    [Test]
-    public async Task SetFilter_Active_FilteredViewShowsOnlyIncomplete()
-    {
-        _repo.Store.Add(new TodoTask { Title = "active1" });
-        _repo.Store.Add(new TodoTask { Title = "active2" });
-        _repo.Store.Add(new TodoTask { Title = "done", IsCompleted = true });
-        await _vm.LoadCommand.ExecuteAsync(null);
+            await _vm.LoadCommand.ExecuteAsync(null);
 
-        _vm.SetFilterCommand.Execute(TaskFilter.Active);
+            Assert.That(_vm.Tasks, Has.Count.EqualTo(2));
+            Assert.That(_repo.LoadCalls, Is.EqualTo(1));
+        }
 
-        var visible = _vm.FilteredTasks.Cast<TaskItemViewModel>().ToList();
-        Assert.That(visible, Has.Count.EqualTo(2));
-        Assert.That(visible.All(t => !t.IsCompleted), Is.True);
-    }
+        [Test]
+        public async Task Add_WhenDialogAccepts_AddsTaskAndSaves()
+        {
+            bool AcceptHandler(TaskEditViewModel editor)
+            {
+                editor.Title = "New task";
+                editor.Description = "Some description";
+                return true;
+            }
+            _dialogs.EditorHandler = AcceptHandler;
 
-    [Test]
-    public async Task SetFilter_Completed_FilteredViewShowsOnlyCompleted()
-    {
-        _repo.Store.Add(new TodoTask { Title = "a" });
-        _repo.Store.Add(new TodoTask { Title = "b", IsCompleted = true });
-        await _vm.LoadCommand.ExecuteAsync(null);
+            await _vm.AddCommand.ExecuteAsync(null);
 
-        _vm.SetFilterCommand.Execute(TaskFilter.Completed);
+            Assert.That(_vm.Tasks, Has.Count.EqualTo(1));
+            Assert.That(_vm.Tasks[0].Title, Is.EqualTo("New task"));
+            Assert.That(_repo.SaveCalls, Is.EqualTo(1));
+            Assert.That(_repo.Store, Has.Count.EqualTo(1));
+        }
 
-        var visible = _vm.FilteredTasks.Cast<TaskItemViewModel>().ToList();
-        Assert.That(visible, Has.Count.EqualTo(1));
-        Assert.That(visible[0].Title, Is.EqualTo("b"));
-    }
+        [Test]
+        public async Task Add_WhenDialogCancels_DoesNothing()
+        {
+            bool RejectHandler(TaskEditViewModel editor)
+            {
+                return false;
+            }
+            _dialogs.EditorHandler = RejectHandler;
 
-    [Test]
-    public async Task DeleteSelected_RemovesOnlyMarkedTasks()
-    {
-        _repo.Store.Add(new TodoTask { Title = "keep" });
-        _repo.Store.Add(new TodoTask { Title = "drop1" });
-        _repo.Store.Add(new TodoTask { Title = "drop2" });
-        await _vm.LoadCommand.ExecuteAsync(null);
+            await _vm.AddCommand.ExecuteAsync(null);
 
-        foreach (var t in _vm.Tasks.Where(t => t.Title.StartsWith("drop")))
-            t.IsSelected = true;
+            Assert.That(_vm.Tasks, Is.Empty);
+            Assert.That(_repo.SaveCalls, Is.Zero);
+        }
 
-        await _vm.DeleteSelectedAsync();
+        [Test]
+        public async Task SetFilter_Active_FilteredViewShowsOnlyIncomplete()
+        {
+            _repo.Store.Add(NewTask("active1"));
+            _repo.Store.Add(NewTask("active2"));
+            _repo.Store.Add(NewTask("done", true));
+            await _vm.LoadCommand.ExecuteAsync(null);
 
-        Assert.That(_vm.Tasks, Has.Count.EqualTo(1));
-        Assert.That(_vm.Tasks[0].Title, Is.EqualTo("keep"));
-        Assert.That(_repo.Store, Has.Count.EqualTo(1));
-    }
+            _vm.SetFilterCommand.Execute(TaskFilter.Active);
 
-    [Test]
-    public async Task Delete_WhenConfirmed_RemovesTask()
-    {
-        _repo.Store.Add(new TodoTask { Title = "to remove" });
-        await _vm.LoadCommand.ExecuteAsync(null);
-        _dialogs.ConfirmResult = true;
+            List<TaskItemViewModel> visible = SnapshotFiltered(_vm);
+            Assert.That(visible, Has.Count.EqualTo(2));
+            bool allIncomplete = true;
+            foreach (TaskItemViewModel item in visible)
+            {
+                if (item.IsCompleted)
+                {
+                    allIncomplete = false;
+                    break;
+                }
+            }
+            Assert.That(allIncomplete, Is.True);
+        }
 
-        await _vm.DeleteCommand.ExecuteAsync(_vm.Tasks[0]);
+        [Test]
+        public async Task SetFilter_Completed_FilteredViewShowsOnlyCompleted()
+        {
+            _repo.Store.Add(NewTask("a"));
+            _repo.Store.Add(NewTask("b", true));
+            await _vm.LoadCommand.ExecuteAsync(null);
 
-        Assert.That(_vm.Tasks, Is.Empty);
-        Assert.That(_repo.Store, Is.Empty);
-    }
+            _vm.SetFilterCommand.Execute(TaskFilter.Completed);
 
-    [Test]
-    public async Task Delete_WhenCancelled_KeepsTask()
-    {
-        _repo.Store.Add(new TodoTask { Title = "stays" });
-        await _vm.LoadCommand.ExecuteAsync(null);
-        _dialogs.ConfirmResult = false;
+            List<TaskItemViewModel> visible = SnapshotFiltered(_vm);
+            Assert.That(visible, Has.Count.EqualTo(1));
+            Assert.That(visible[0].Title, Is.EqualTo("b"));
+        }
 
-        await _vm.DeleteCommand.ExecuteAsync(_vm.Tasks[0]);
+        [Test]
+        public async Task DeleteSelected_RemovesOnlyMarkedTasks()
+        {
+            _repo.Store.Add(NewTask("keep"));
+            _repo.Store.Add(NewTask("drop1"));
+            _repo.Store.Add(NewTask("drop2"));
+            await _vm.LoadCommand.ExecuteAsync(null);
 
-        Assert.That(_vm.Tasks, Has.Count.EqualTo(1));
-    }
+            foreach (TaskItemViewModel t in _vm.Tasks)
+            {
+                if (t.Title.StartsWith("drop"))
+                {
+                    t.IsSelected = true;
+                }
+            }
 
-    [Test]
-    public async Task ToggleComplete_FlipsIsCompletedAndSaves()
-    {
-        _repo.Store.Add(new TodoTask { Title = "t", IsCompleted = false });
-        await _vm.LoadCommand.ExecuteAsync(null);
-        var before = _repo.SaveCalls;
+            await _vm.DeleteSelectedAsync();
 
-        await _vm.ToggleCompleteAsync(_vm.Tasks[0]);
+            Assert.That(_vm.Tasks, Has.Count.EqualTo(1));
+            Assert.That(_vm.Tasks[0].Title, Is.EqualTo("keep"));
+            Assert.That(_repo.Store, Has.Count.EqualTo(1));
+        }
 
-        Assert.That(_vm.Tasks[0].IsCompleted, Is.True);
-        Assert.That(_repo.SaveCalls, Is.GreaterThan(before));
+        [Test]
+        public async Task Delete_WhenConfirmed_RemovesTask()
+        {
+            _repo.Store.Add(NewTask("to remove"));
+            await _vm.LoadCommand.ExecuteAsync(null);
+            _dialogs.ConfirmResult = true;
+
+            await _vm.DeleteCommand.ExecuteAsync(_vm.Tasks[0]);
+
+            Assert.That(_vm.Tasks, Is.Empty);
+            Assert.That(_repo.Store, Is.Empty);
+        }
+
+        [Test]
+        public async Task Delete_WhenCancelled_KeepsTask()
+        {
+            _repo.Store.Add(NewTask("stays"));
+            await _vm.LoadCommand.ExecuteAsync(null);
+            _dialogs.ConfirmResult = false;
+
+            await _vm.DeleteCommand.ExecuteAsync(_vm.Tasks[0]);
+
+            Assert.That(_vm.Tasks, Has.Count.EqualTo(1));
+        }
+
+        [Test]
+        public async Task ToggleComplete_FlipsIsCompletedAndSaves()
+        {
+            _repo.Store.Add(NewTask("t", false));
+            await _vm.LoadCommand.ExecuteAsync(null);
+            int before = _repo.SaveCalls;
+
+            await _vm.ToggleCompleteAsync(_vm.Tasks[0]);
+
+            Assert.That(_vm.Tasks[0].IsCompleted, Is.True);
+            Assert.That(_repo.SaveCalls, Is.GreaterThan(before));
+        }
     }
 }

@@ -1,8 +1,9 @@
-namespace WpfLab3.Models;
-
-public enum TaskFilter
+namespace WpfLab3.Models
 {
-    All,
-    Active,
-    Completed
+    public enum TaskFilter
+    {
+        All,
+        Active,
+        Completed
+    }
 }

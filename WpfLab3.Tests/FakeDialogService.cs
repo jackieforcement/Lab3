@@ -1,15 +1,56 @@
+using System;
 using WpfLab3.Services;
 using WpfLab3.ViewModels;
 
-namespace WpfLab3.Tests;
-
-public class FakeDialogService : IDialogService
+namespace WpfLab3.Tests
 {
-    public Func<TaskEditViewModel, bool>? EditorHandler { get; set; }
-    public bool ConfirmResult { get; set; } = true;
+    public class FakeDialogService : IDialogService
+    {
+        private Func<TaskEditViewModel, bool>? _editorHandler;
+        private bool _confirmResult;
 
-    public bool ShowTaskEditor(TaskEditViewModel viewModel)
-        => EditorHandler?.Invoke(viewModel) ?? false;
+        public FakeDialogService()
+        {
+            _editorHandler = null;
+            _confirmResult = true;
+        }
 
-    public bool Confirm(string message, string title = "Подтверждение") => ConfirmResult;
+        public Func<TaskEditViewModel, bool>? EditorHandler
+        {
+            get
+            {
+                return _editorHandler;
+            }
+            set
+            {
+                _editorHandler = value;
+            }
+        }
+
+        public bool ConfirmResult
+        {
+            get
+            {
+                return _confirmResult;
+            }
+            set
+            {
+                _confirmResult = value;
+            }
+        }
+
+        public bool ShowTaskEditor(TaskEditViewModel viewModel)
+        {
+            if (_editorHandler == null)
+            {
+                return false;
+            }
+            return _editorHandler(viewModel);
+        }
+
+        public bool Confirm(string message, string title = "Подтверждение")
+        {
+            return _confirmResult;
+        }
+    }
 }

@@ -2,28 +2,52 @@ using System.Windows;
 using WpfLab3.ViewModels;
 using WpfLab3.Views;
 
-namespace WpfLab3.Services;
-
-public class DialogService : IDialogService
+namespace WpfLab3.Services
 {
-    public bool ShowTaskEditor(TaskEditViewModel viewModel)
+    public class DialogService : IDialogService
     {
-        var window = new TaskEditWindow
+        public bool ShowTaskEditor(TaskEditViewModel viewModel)
         {
-            DataContext = viewModel,
-            Owner = Application.Current?.MainWindow
-        };
-        return window.ShowDialog() == true;
-    }
+            TaskEditWindow window = new TaskEditWindow();
+            window.DataContext = viewModel;
+            if (Application.Current != null)
+            {
+                window.Owner = Application.Current.MainWindow;
+            }
+            bool? result = window.ShowDialog();
+            if (result.HasValue && result.Value)
+            {
+                return true;
+            }
+            return false;
+        }
 
-    public bool Confirm(string message, string title = "Подтверждение")
-    {
-        var result = MessageBox.Show(
-            Application.Current?.MainWindow!,
-            message,
-            title,
-            MessageBoxButton.YesNo,
-            MessageBoxImage.Question);
-        return result == MessageBoxResult.Yes;
+        public bool Confirm(string message, string title = "Подтверждение")
+        {
+            Window? owner = null;
+            if (Application.Current != null)
+            {
+                owner = Application.Current.MainWindow;
+            }
+            MessageBoxResult result;
+            if (owner != null)
+            {
+                result = MessageBox.Show(
+                    owner,
+                    message,
+                    title,
+                    MessageBoxButton.YesNo,
+                    MessageBoxImage.Question);
+            }
+            else
+            {
+                result = MessageBox.Show(
+                    message,
+                    title,
+                    MessageBoxButton.YesNo,
+                    MessageBoxImage.Question);
+            }
+            return result == MessageBoxResult.Yes;
+        }
     }
 }
